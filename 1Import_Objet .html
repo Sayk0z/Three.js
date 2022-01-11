@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js webgl - collada</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<link type="text/css" rel="stylesheet" href="main.css">
+	</head>
+	<body>
+
+		<div id="container"></div>
+		<div id="info">
+			<a href="https://threejs.org" target="_blank" rel="noopener">three.js</a> collada loader<br/>
+			Elf Girl by <a href="https://sketchfab.com/yellow09" target="_blank" rel="noopener">halloween</a>, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC Attribution</a>
+		</div>
+
+		<script type="module">
+
+			import * as THREE from '../build/three.module.js';
+
+			import Stats from './jsm/libs/stats.module.js'; //Module des stats pour afficher les fps 
+
+			import { ColladaLoader } from './jsm/loaders/ColladaLoader.js'; //chargé le loader
+
+			let container, stats, clock; //nouvelle variable  Clock
+			let camera, scene, renderer, elf;
+
+			init();
+			animate();
+
+			function init() {
+
+				container = document.getElementById( 'container' );
+
+				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.1, 2000 );
+				camera.position.set( 8, 10, 8 );
+				camera.lookAt( 0, 3, 0 ); //regarder quelque part
+
+				scene = new THREE.Scene();
+
+				clock = new THREE.Clock(); //faire appel a l'horloge de notre ordinateur
+
+				// loading manager // Chargement d'un objet en 2 temps
+
+				const loadingManager = new THREE.LoadingManager( function () { // Mieux gérer le chargement d'objet
+
+					scene.add( elf ); //chargé tout nos objetc
+                    // scene.add( elf );
+                    // scene.add( elf );
+                    // scene.add( elf );
+                    //etc
+
+				} );
+
+				// collada
+
+				const loader = new ColladaLoader( loadingManager ); // Chargé le loader
+				loader.load( './models/collada/elf/elf.dae', function ( collada ) { // charge les fichiers
+
+					elf = collada.scene; // objet chargé en 0,0,0 par defaut 
+                    //elf.position, elf.rotation etc... est possible
+
+				} );
+
+				//
+
+				const ambientLight = new THREE.AmbientLight( 0xcccccc, 0.4 );
+				scene.add( ambientLight );
+
+				const directionalLight = new THREE.DirectionalLight( 0xffffff, 0.8 );
+				directionalLight.position.set( 1, 1, 0 ).normalize();
+				scene.add( directionalLight );
+
+				
+
+				renderer = new THREE.WebGLRenderer();
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				container.appendChild( renderer.domElement );
+
+				//
+
+				stats = new Stats(); //création de stats
+				container.appendChild( stats.dom ); // avoir le rectangle avec les fps
+
+				//
+
+				window.addEventListener( 'resize', onWindowResize );
+
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+
+			function animate() {
+
+				requestAnimationFrame( animate );
+
+				render();
+				stats.update(); // update des stats
+
+			}
+
+			function render() {
+
+				const delta = clock.getDelta(); //clock.getDelta = 1/60 permet d'avoir la vitesse en fps a laquelle tourne notre ordi 
+
+				// if ( elf !== undefined ) { //
+
+				// 	elf.rotation.z += delta * 0.5; // on adapte la vitesse de la scene 
+
+				// }
+
+				renderer.render( scene, camera );
+
+			}
+
+		</script>
+	</body>
+</html>
+
+

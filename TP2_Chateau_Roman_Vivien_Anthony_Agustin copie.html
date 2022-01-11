@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>TP2_chateau</title> 
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<link type="text/css" rel="stylesheet" href="main.css">
+		</head>
+	<body>
+		<div id="container"></div>
+			<script type="module">
+
+			import * as THREE from '../build/three.module.js';
+			import { OrbitControls }from './jsm/controls/OrbitControls.js'; //importation de OrbitControls déplacer la caméra avec la souris
+			import { GUI } from './jsm/libs/dat.gui.module.js';
+			import { ColladaLoader } from './jsm/loaders/ColladaLoader.js'; //chargé le loader
+			import Stats from './jsm/libs/stats.module.js'; //Module des stats pour afficher les fps 
+			import { FBXLoader } from './jsm/loaders/FBXLoader.js';
+			import { GLTFLoader } from "./jsm/loaders/GLTFLoader.js";
+			
+			
+
+			let camera, scene, renderer;
+			let chateau, cone, wall,cube,door,blackdoor;
+			let size = -350;
+			let size2 = -350;
+			let sizetower= 0;
+			let controls; // pour le déplacement de la souris
+			
+			let gui;
+			let spotLight, lightHelper, shadowCameraHelper;
+			let moonLight, moonlightHelper, moonshadowCameraHelper;
+			let sun, moon;
+			//MODIF TP3
+			let clock // Horloge
+			let container,stats,mixer;
+			
+
+			init();
+			animate();
+
+			function init() {
+
+				container = document.getElementById( 'container' ); // on récupère la variable container
+
+				//ajout de la scene
+				scene = new THREE.Scene();
+				
+				//ligne obligatoire // RENDERER
+				renderer = new THREE.WebGLRenderer( { antialias: true } );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				//renderer.setClearColor(0xC8AD7F, 1.0); // Couleurs de l'arrière plan
+				document.body.appendChild( renderer.domElement );
+
+				renderer.shadowMap.enabled = true; //permet d'avoir des calculs des ombres
+				 renderer.shadowMap.type = THREE.PCFSoftShadowMap; //Type d'ombres (Soft == ombres adoucis)
+				 renderer.outputEncoding = THREE.sRGBEncoding; // Meilleur encodage de couleur 
+				 
+				// configuration de la caméra
+
+				camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 2500 );
+				camera.position.z = 2000; //position de la camera
+
+				//CONTROLS ------ Function new OrbitControls pour déplacer le chateau avec la souris
+				controls = new OrbitControls( camera, renderer.domElement );	
+				
+				controls.minDistance = 100;
+				controls.maxDistance = 2000;
+
+				//Pour avoir des stats
+
+				clock = new THREE.Clock(); //faire appel a l'horloge de notre ordinateur
+				stats = new Stats(); //création de stats
+				container.appendChild( stats.dom ); // avoir le rectangle avec les fps
+
+				
+				//Lumière == SUN
+
+				let ambient = new THREE.AmbientLight( 0xf78e00, 0.1 ); //ambient light --> lumière ambient (0.1 = intensité (toujours faible))
+                scene.add( ambient );
+
+				spotLight = new THREE.SpotLight( 0xf78e00, 1 );
+				
+				spotLight.position.set( 700, 800, 650 ); //position dans l'espace X,Y,Z
+				spotLight.angle = 1,3 // angle de la lumière
+				spotLight.penumbra = 1; //neteté de la lumière
+				spotLight.decay = 1; // intensité de la couleur
+				spotLight.distance = 2000; //distance de la lumière
+
+                //Gestion de l'ombre 
+
+				spotLight.castShadow = true; //Projection de l'ombre 
+				spotLight.shadow.mapSize.width = 512; //qualite de la largeur de l'ombre
+				spotLight.shadow.mapSize.height = 512;//qualite de la hauteur de l'ombre
+				spotLight.shadow.camera.near = 50;   // zone dans laquelle on projette les ombre
+				spotLight.shadow.camera.far = 200;  // zone dans laquelle on projette les ombre
+				spotLight.shadow.focus = 1;         //ouverture du cone d'ombre 
+				scene.add( spotLight );             //ajout de la lumière dans la scene
+
+				// lightHelper = new THREE.SpotLightHelper( spotLight ); // aide a mieux visualiser la projection
+				// scene.add( lightHelper );
+
+				// shadowCameraHelper = new THREE.CameraHelper( spotLight.shadow.camera ); //aide a mieux visualiser la projection
+				// scene.add( shadowCameraHelper );
+
+				
+
+				//Lumière === MOON
+
+				let ambient2 = new THREE.AmbientLight( 0xffffff, 0.1 ); //ambient light --> lumière ambient (0.1 = intensité (toujours faible))
+                scene.add( ambient2 );
+
+				moonLight = new THREE.SpotLight( 0xFFFFFF, 1 );
+				
+				moonLight.position.set( -700, 800, 650 ); //position dans l'espace X,Y,Z
+				moonLight.angle = 1,3 // angle de la lumière
+				moonLight.penumbra = 1; //neteté de la lumière
+				moonLight.decay = 1; // intensité de la couleur
+				moonLight.distance = 2000; //distance de la lumière
+
+				
+
+                //Gestion de l'ombre 
+
+				moonLight.castShadow = true; //Projection de l'ombre 
+				moonLight.shadow.mapSize.width = 512; //qualite de la largeur de l'ombre
+				moonLight.shadow.mapSize.height = 512;//qualite de la hauteur de l'ombre
+				moonLight.shadow.camera.near = 50;   // zone dans laquelle on projette les ombre
+				moonLight.shadow.camera.far = 200;  // zone dans laquelle on projette les ombre
+				moonLight.shadow.focus = 1;         //ouverture du cone d'ombre 
+				scene.add( moonLight );   
+
+				// moonlightHelper = new THREE.SpotLightHelper( moonLight ); // aide a mieux visualiser la projection
+				// scene.add( moonlightHelper );
+
+				// moonshadowCameraHelper = new THREE.CameraHelper( moonLight.shadow.camera ); //aide a mieux visualiser la projection
+				// scene.add( moonshadowCameraHelper );
+
+
+				//Surface qui va réflechir la lumière 
+				let area_texture = new THREE.TextureLoader().load( 'textures/terrain/grasslight-big.jpg' );
+				let area_geometry = new THREE.PlaneGeometry( 2000, 2000 );	
+				let area_material = new THREE.MeshPhongMaterial( { map: area_texture } ); // Meilleur matériel 
+											
+				let area = new THREE.Mesh( area_geometry, area_material );
+				area.position.set( 0, -152, 300 ); //X,Y,Z
+				area.rotation.x = - Math.PI * 0.5; //rotation plateau
+				area.receiveShadow = true; // a chque objet, il faut indiquer qu'il reçoit des ombres
+				scene.add( area );
+
+
+			}
+							
+				// CHATEAU --------- Construction de la base du chateau --> Façade avant
+					
+					//Grandes Tours x2
+				
+				
+				function tower(X,Y,Z, positionX,positionY,positionZ){
+
+				const tower_texture = new THREE.TextureLoader().load( 'textures/brick_bump.jpg' );
+				const tower_geometry = new THREE.CylinderGeometry( X,Y,Z ); //60, 60, 300 
+				const tower_cylinder = new THREE.MeshPhongMaterial( { map: tower_texture } );
+				
+				chateau = new THREE.Mesh( tower_geometry, tower_cylinder );
+				chateau.position.set(positionX,positionY,positionZ);
+				chateau.receiveShadow = true; // a chque objet, il faut indiquer qu'il reçoit des ombres
+				chateau.castShadow = true;
+				scene.add( chateau );
+				
+
+			}			
+				
+				//chapeau en forme de cone
+				function coneChateau(X,Y,Z,positionX,positionY,positionZ){
+
+				const cone_texture = new THREE.TextureLoader().load( 'textures/crate.gif' ); //texture a changer 
+				const cone_geometry = new THREE.ConeGeometry( X, Y, Z );
+				const chapeau = new THREE.MeshPhongMaterial( { map: cone_texture } );
+				cone = new THREE.Mesh( cone_geometry, chapeau );
+				cone.receiveShadow = true; // a chque objet, il faut indiquer qu'il reçoit des ombres
+				cone.castShadow = true;
+				cone.position.set(positionX,positionY,positionZ);
+				scene.add( cone );
+				
+			}
+				function wallChateau (X,Y,Z,positionX,positionY,positionZ){
+
+				const wall_texture = new THREE.TextureLoader().load( 'textures/brick_bump.jpg' ); 
+				const wall_geometry = new THREE.BoxGeometry( X,Y,Z ); //720, 200, 80                 
+				const wall_material = new THREE.MeshPhongMaterial( { map: wall_texture } );       
+				wall = new THREE.Mesh( wall_geometry, wall_material ); 
+				wall.receiveShadow = true; // a chque objet, il faut indiquer qu'il reçoit des ombres 
+				wall.castShadow = true;
+				wall.position.set(positionX,positionY,positionZ);                          
+				scene.add( wall ); 
+
+				}
+				function cubeChateau (X,Y,Z,positionX,positionY,positionZ){
+				const cube_texture = new THREE.TextureLoader().load( 'textures/brick_bump.jpg' ); // TextureLoader().load = chargé une texture
+				const cube_geometry = new THREE.BoxGeometry( X,Y,Z );                // création de la boite, BoxGeometry(dimension de la boite)
+				const cube_material = new THREE.MeshPhongMaterial( { map: cube_texture } );       // Matériaux utilisé, (map)
+
+				cube = new THREE.Mesh( cube_geometry, cube_material );
+				cube.receiveShadow = true; // a chque objet, il faut indiquer qu'il reçoit des ombres
+				cube.castShadow = true;
+				cube.position.set(positionX,positionY,positionZ); // commande qui associe geometry et materiaux
+				scene.add( cube );
+
+				}
+
+				function doorChateau (X,Y,Z,positionX,positionY,positionZ){
+				const door_texture = new THREE.TextureLoader().load( 'textures/crate.gif' ); // TextureLoader().load = chargé une texture
+				const door_geometry = new THREE.BoxGeometry( X,Y,Z );                // création de la boite, BoxGeometry(dimension de la boite)
+				const door_material = new THREE.MeshPhongMaterial( { map: door_texture } );       // Matériaux utilisé, (map)
+
+				door = new THREE.Mesh( door_geometry, door_material );
+				door.receiveShadow = true; // a chque objet, il faut indiquer qu'il reçoit des ombres
+				door.castShadow = true;
+				door.position.set(positionX,positionY,positionZ);// commande qui associe geometry et materiaux
+				scene.add( door );
+
+				}
+
+				//Porte noir pour l'animation de la porte
+			
+				const blackdoor_geometry = new THREE.BoxGeometry( 70,120,10 );                // création de la boite, BoxGeometry(dimension de la boite)
+				const blackdoor_material = new THREE.MeshPhongMaterial( { color: 0x000000} ); // Matériaux utilisé, (map)
+					
+				blackdoor = new THREE.Mesh( blackdoor_geometry, blackdoor_material );
+				blackdoor.receiveShadow = true; // a chque objet, il faut indiquer qu'il reçoit des ombres
+				blackdoor.castShadow = true;
+				blackdoor.position.set(20,-90,707);// commande qui associe geometry et materiaux
+				scene.add( blackdoor );
+
+				function sunChateau (X,Y,Z){
+				const sun_texture = new THREE.TextureLoader().load( 'textures/lava/lavatile.jpg' );
+				const sun_geometry = new THREE.SphereGeometry( X, Y, Z );                // création de la boite, BoxGeometry(dimension de la boite)
+				const sun_material = new THREE.MeshBasicMaterial( { map: sun_texture } );       // Matériaux utilisé, (map)
+
+				sun = new THREE.Mesh( sun_geometry, sun_material );
+				sun.receiveShadow = true; // a chque objet, il faut indiquer qu'il reçoit des ombres
+				sun.castShadow = true;
+				sun.position.set(750, 870, 650);// commande qui associe geometry et materiaux
+				scene.add( sun );
+
+				}
+
+				sunChateau( 80, 120, 80);
+
+
+				//Lune
+				
+				
+				const moon_geometry = new THREE.SphereGeometry( 80, 120, 80);                // création de la boite, BoxGeometry(dimension de la boite)
+				const moon_material = new THREE.MeshBasicMaterial( { color: 0xffffff } );       // Matériaux utilisé, (map)
+
+				moon = new THREE.Mesh( moon_geometry, moon_material );
+				moon.receiveShadow = true; // a chque objet, il faut indiquer qu'il reçoit des ombres
+				moon.castShadow = true;
+				moon.position.set(-750, 870, 650);// commande qui associe geometry et materiaux
+				scene.add( moon );
+
+	
+				// Façade arrière
+				for(let i=0; i<4; i++){ 
+
+				if(i==0 || i==3){
+
+				tower(80, 80, 300,size,0,-35);
+				coneChateau(80, 100, 100,size,200,-35); // 
+				size+=250;
+
+				}else{
+
+				tower(40, 40, 200,size,0,-35);
+				coneChateau(40, 100, 100,size,150,-35);
+				size+=250;
+
+					}
+				}
+				//mur de derrière
+				wallChateau(780, 200, 80 ,0,-52,0);
+
+
+
+				//Façade avant
+
+				for(let i=0; i<4; i++){ 
+
+				if(i==0 || i==3){
+
+				tower(80, 80, 300,size2,0,705);
+				coneChateau(80, 100, 100,size2,200,705);
+				size2+=250;
+
+				}else{
+
+				tower(40, 40, 200,size2,0,705);
+				coneChateau(40, 100, 100,size2,150,705);
+				size2+=250;
+
+					}
+				}
+
+				//mur de devant
+				wallChateau(780, 200, 80 ,0,-52,670); //670/2 = 335
+
+
+
+				//façade de gauche
+				for(let j=0; j<2; j++) {
+
+				tower(40, 40, 200,-350,0,240 + sizetower);
+				coneChateau(40, 100, 100,-350,150, 230 + sizetower); //635 est la distance total du mur 
+				sizetower+= 237;										// 635/4 = 158 (environ) + 158/2 = 79 ===237
+				}
+				//mur de gauche
+				wallChateau(780, 200, 80 ,-350,-52,315);
+				wall.rotation.y = 90 * THREE.Math.DEG2RAD; //pour avoir l'angle a 90 dégrès
+
+
+				//façade de droite
+				for(let j=0; j<2; j++) {
+
+				tower(40, 40, 200, 385, 0, -230 + sizetower);
+				coneChateau(40, 100, 100, 385, 150, -230 + sizetower); //635 est la distance total du mur 
+				sizetower+= 237;										// 635/4 = 158 (environ) + 158/2 = 79 ===237
+				}
+
+				//mur de droite
+				wallChateau(780, 200, 80 ,385,-52,315);
+				wall.rotation.y = 90 * THREE.Math.DEG2RAD; //pour avoir l'angle a 90 dégrès
+
+		
+				//Cubes Centraux
+				cubeChateau(700, 200, 620,0,-52,335); //PLUS GROS
+				cubeChateau(400, 400, 400,0,120,335); // MOYEN
+				
+
+				// Grande Tour Principale
+				tower(150, 150, 700,0,300,335);
+				coneChateau(150, 200, 100, 0, 750,335);
+
+
+				// TOUR CENTRALES X4 ----------------------------------------------------------------
+
+				//Tour avant gauche (Tour initale)
+				tower(80,80, 300,-175,300,530);
+				coneChateau(80,80, 300, -175, 490,530);
+
+				//Tour avant droit
+				tower(80,80, 300,175,300,530);
+				coneChateau(80,80, 300, 175, 490,530);  //Juste de PositionX qui change
+
+				//Tour arrière gauche
+				tower(80,80, 300,-175,300,120);
+				coneChateau(80,80, 300, -175, 490,120); // Juste Position X qui change
+
+				//Tour avant gauche
+				tower(80,80, 300,175,300,120);
+				coneChateau(80,80, 300, 175, 490,120); //Position X et Z qui change
+
+
+				//Porte Principale
+
+				doorChateau(70,120,10,20,-90,720);
+			//tower(10,10,10,0,30,50);
+
+
+			animate();
+
+			
+			// model pour bien chargé nos objets
+			const loader = new FBXLoader();
+			
+			loader.load( 'models/fbx/perso.fbx', function ( object ) { //chargé un modèle
+				
+
+					mixer = new THREE.AnimationMixer( object ); // Lire si les animations de l'objet
+
+					const action = mixer.clipAction( object.animations[ 0 ] ); // 1 seule animation = animation 0
+					action.play(); // Play l'animation
+
+					object.traverse( function ( child ) { // parcourir tout le fichiers de l'objet 
+
+						if ( child.isMesh ) { // si l'enfant est un mesh, c'est un vrai objet
+
+							child.castShadow = true; 
+							child.receiveShadow = true;
+
+						}
+
+					} );
+
+					scene.add( object );
+
+				} );
+			
+				//listener
+
+				window.addEventListener( 'resize', onWindowResize );
+
+		
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+
+			function buildGui() { //Interface graphique
+
+			gui = new GUI(); //créer un new graphique interface
+
+			const params = {
+				'suncolor': spotLight.color.getHex(),
+				'mooncolor': moonLight.color.getHex(),
+				intensity: spotLight.intensity, //associe un nom de paramètre a un objet present sur la scene
+				distance: spotLight.distance,
+				moonangle: moonLight.angle && moonLight.penumbra,
+				moon: moonLight.position.x && moon.position.x, 
+				sunangle: spotLight.angle && spotLight.penumbra,
+				sun:spotLight.position.x && sun.position.x, 
+				door:door.position.y
+			};
+
+			gui.addColor( params, 'suncolor' ).onChange( function ( val ) { //boite de couleur 
+
+			spotLight.color.setHex( val ); //couleur stocké en hex donc on met setHex();
+			animate(); //MAJ
+			
+
+			} );
+
+			gui.addColor( params, 'mooncolor' ).onChange( function ( val ) { //boite de couleur 
+
+			moonLight.color.setHex( val );
+			animate(); //MAJ
+
+			} );
+
+			gui.add( params, 'sunangle', 0, 1.5 ).onChange( function ( val ) {
+
+			spotLight.angle = val;
+			spotLight.penumbra = val;
+			animate();
+
+			} );
+
+			gui.add( params, 'sun', -700, 700 ).onChange( function ( val ) {
+
+			spotLight.position.set(val, 850,600);
+			sun.position.set(val, 850,650);
+
+			animate();
+
+			} );
+
+			gui.add( params, 'moonangle', 0, 1.5 ).onChange( function ( val ) {
+
+			moonLight.angle = val;
+			moonLight.penumbra = val;
+
+			animate();
+
+			} );
+
+			gui.add( params, 'moon', -700, 700 ).onChange( function ( val ) {
+
+			moonLight.position.set(val, 850,600);
+			moon.position.set(val, 850,650);
+
+			animate();
+
+			} );
+
+			gui.add( params, 'door', -90, 30 ).onChange( function ( val ) {
+
+			door.position.set(20, val,720); //ouvrir la porte en y
+
+
+			animate();
+
+			} );
+
+			gui.open(); //ouvrir l'interface utilisateur 
+
+}
+
+			buildGui();
+			animate();
+
+		
+			function animate() {
+
+				requestAnimationFrame( animate );
+				const delta = clock.getDelta(); //clock.getDelta = 1/60 permet d'avoir la vitesse en fps a laquelle tourne notre ordi 
+				if ( mixer ) mixer.update( delta ); // mis a jour pour la danse
+				
+
+				// lightHelper.update(); //pareil pour les controls, faire des updates
+
+				// shadowCameraHelper.update(); //pareil pour les controls, faire des updates
+
+				controls.update();
+				
+			
+				renderer.render( scene, camera );
+
+				
+			}
+
+		
+
+		</script>
+
+	</body>
+</html>
